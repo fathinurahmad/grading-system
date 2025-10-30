@@ -327,7 +327,7 @@ export function DownloadData() {
 
   const downloadOptions = [
     {
-      label: "Students Data",
+      label: "Lecturer Scores",
       color: "bg-[#DE80FF] hover:bg-[#d066f0]",
       textColor: "text-white",
       onClick: handleDownloadStudents,
