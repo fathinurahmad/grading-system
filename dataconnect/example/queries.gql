@@ -1,0 +1,24 @@
+mutation CreateNewUser($displayName: String!, $email: String, $photoUrl: String) @auth(level: USER) {
+  user_insert(data: {displayName: $displayName, email: $email, photoUrl: $photoUrl, createdAt_expr: "request.time", id_expr: "uuidV4()"})
+}
+
+query GetUser @auth(level: USER, insecureReason: "This query is safe to expose to all logged in users.") {
+  user(key: {id_expr: "auth.uid"}) {
+    id
+    displayName
+    email
+    photoUrl
+  }
+}
+
+mutation CreateMovieList($name: String!, $description: String, $public: Boolean!) @auth(level: USER) {
+  list_insert(data: {name: $name, description: $description, public: $public, userId_expr: "auth.uid", createdAt_expr: "request.time", updatedAt_expr: "request.time", id_expr: "uuidV4()"})
+}
+
+query ListPublicMovieLists @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public") {
+  lists(where: {public: {eq: true}}) {
+    id
+    name
+    description
+  }
+}

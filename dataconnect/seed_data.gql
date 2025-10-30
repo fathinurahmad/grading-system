@@ -1,0 +1,98 @@
+mutation SeedDatabase @transaction @auth(level: NO_ACCESS) {
+  user_insertMany(data: [
+    {
+      id: "6b29c998-b919-4999-8751-078448426215",
+      displayName: "John Doe",
+      email: "john.doe@example.com",
+      createdAt: "2024-01-01T00:00:00Z"
+    },
+    {
+      id: "7e11c921-088d-44cb-a6ca-93419b699f4f",
+      displayName: "Jane Smith",
+      email: "jane.smith@example.com",
+      createdAt: "2024-01-05T00:00:00Z"
+    }
+  ])
+  movie_insertMany(data: [
+    {
+      id: "a1b2c3d4-e5f6-4789-9012-34567890abcd",
+      title: "Example Movie 1",
+      year: 2020,
+      createdAt: "2024-01-10T00:00:00Z",
+      genres: ["action", "comedy"]
+    },
+    {
+      id: "bcdef123-4567-890a-bcde-f123456789ab",
+      title: "Example Movie 2",
+      year: 2022,
+      createdAt: "2024-01-15T00:00:00Z",
+      genres: ["drama", "romance"]
+    }
+  ])
+  list_insertMany(data: [
+    {
+      id: "123e4567-e89b-12d3-a456-426614174000",
+      userId: "6b29c998-b919-4999-8751-078448426215",
+      name: "John's Favorite Movies",
+      description: "A list of John's favorite movies",
+      public: true,
+      createdAt: "2024-01-20T00:00:00Z",
+      updatedAt: "2024-01-20T00:00:00Z"
+    },
+    {
+      id: "5ac39e27-4b76-4332-b942-c8724c893e92",
+      userId: "7e11c921-088d-44cb-a6ca-93419b699f4f",
+      name: "Jane's Watchlist",
+      description: "Movies Jane wants to watch",
+      public: false,
+      createdAt: "2024-01-25T00:00:00Z",
+      updatedAt: "2024-01-25T00:00:00Z"
+    }
+  ])
+  listMovie_insertMany(data: [
+    {
+      listId: "123e4567-e89b-12d3-a456-426614174000",
+      movieId: "a1b2c3d4-e5f6-4789-9012-34567890abcd",
+      position: 1
+    },
+    {
+      listId: "5ac39e27-4b76-4332-b942-c8724c893e92",
+      movieId: "bcdef123-4567-890a-bcde-f123456789ab",
+      position: 1
+    }
+  ])
+  watch_insertMany(data: [
+     {
+      id: "9f4c5b82-84a9-4e2e-9b1e-7541aa2e9979",
+      movieId: "a1b2c3d4-e5f6-4789-9012-34567890abcd",
+      userId: "6b29c998-b919-4999-8751-078448426215",
+      watchDate: "2024-02-10",
+      createdAt: "2024-02-10T00:00:00Z"
+    },
+    {
+      id: "938b52a2-c7f6-45c1-b02c-e6b589250c6d",
+      movieId: "bcdef123-4567-890a-bcde-f123456789ab",
+      userId: "7e11c921-088d-44cb-a6ca-93419b699f4f",
+      watchDate: "2024-02-15",
+      createdAt: "2024-02-15T00:00:00Z"
+    }
+  ])
+  review_insertMany(data: [
+    {
+      id: "b3b5a771-5147-4f0a-815a-c4bb242340b4",
+      movieId: "a1b2c3d4-e5f6-4789-9012-34567890abcd",
+      userId: "6b29c998-b919-4999-8751-078448426215",
+      rating: 5,
+      createdAt: "2024-02-20T00:00:00Z",
+      watchId: "9f4c5b82-84a9-4e2e-9b1e-7541aa2e9979"
+    },
+    {
+      id: "d6d205cf-2c22-4169-9a9f-687c824603f2",
+      movieId: "bcdef123-4567-890a-bcde-f123456789ab",
+      userId: "7e11c921-088d-44cb-a6ca-93419b699f4f",
+      rating: 4,
+      createdAt: "2024-02-25T00:00:00Z",
+      watchId: "938b52a2-c7f6-45c1-b02c-e6b589250c6d"
+    }
+  ])
+}
