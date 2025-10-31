@@ -41,6 +41,8 @@ export function ScoreReview() {
   const [committeeName, setCommitteeName] = useState<string>("")
   const [saving, setSaving] = useState(false)
   const [showHistory, setShowHistory] = useState<string | null>(null)
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
+  const [resetting, setResetting] = useState(false)
 
   const [classes, setClasses] = useState<string[]>([])
   const [groupsByClass, setGroupsByClass] = useState<Record<string, string[]>>({})
@@ -415,6 +417,45 @@ export function ScoreReview() {
     XLSX.writeFile(workbook, fileName)
   }
 
+  const handleResetAllScores = async () => {
+    setResetting(true)
+    try {
+      // Reset all student scores in Firestore
+      const batch: Promise<void>[] = []
+      students.forEach((student) => {
+        const scoreRef = doc(db, "studentScores", student.id)
+        batch.push(
+          setDoc(scoreRef, {
+            remainingScore: 100,
+            scoreNote: "",
+            history: [],
+            updatedAt: new Date().toISOString()
+          })
+        )
+      })
+
+      await Promise.all(batch)
+
+      // Update local state
+      setStudents((prev) =>
+        prev.map((s) => ({
+          ...s,
+          remainingScore: 100,
+          scoreNote: "",
+          history: []
+        }))
+      )
+
+      alert("✅ All scores have been reset to 100 and history cleared!")
+      setShowResetConfirm(false)
+    } catch (error) {
+      console.error("Error resetting scores:", error)
+      alert("❌ Failed to reset scores. Please try again.")
+    } finally {
+      setResetting(false)
+    }
+  }
+
   if (loading) {
     return (
       <Card>
@@ -438,7 +479,7 @@ export function ScoreReview() {
               Review and manage student scores ({students.length} total)
             </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">        
             <Button onClick={loadStudents} variant="outline" size="sm">
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
@@ -713,7 +754,65 @@ export function ScoreReview() {
           <div>1. Click "Edit" → Enter new remaining score → Add reason & your name → Click ✓ to save</div>
           <div>2. Click "History" button to see all reduction records for that student</div>
           <div>3. Click "Export Excel" to download complete data with full history</div>
+          <div>4. Click "Reset All" to restore all scores to 100 (⚠️ backup first!)</div>
         </div>
+
+        {/* Reset Confirmation Modal */}
+        {showResetConfirm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <span className="text-2xl">⚠️</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-red-900">Reset All Scores?</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    This action will:
+                  </p>
+                  <ul className="text-sm text-gray-600 mt-2 space-y-1 list-disc list-inside">
+                    <li>Reset all student scores back to <strong>100</strong></li>
+                    <li>Clear all score notes</li>
+                    <li>Delete all history records</li>
+                  </ul>
+                  <p className="text-sm font-bold text-red-600 mt-3">
+                    ⚠️ This action cannot be undone!
+                  </p>
+                  <p className="text-sm text-gray-600 mt-2">
+                    💡 Tip: Export Excel first to backup all data before resetting.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-2 justify-end pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowResetConfirm(false)}
+                  disabled={resetting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleResetAllScores}
+                  disabled={resetting}
+                >
+                  {resetting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Resetting...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Yes, Reset All
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   )
