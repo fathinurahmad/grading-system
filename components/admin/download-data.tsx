@@ -10,6 +10,25 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import * as XLSX from "xlsx"
 import { saveAs } from "file-saver"
 
+interface ScoreHistory {
+  timestamp: string
+  committeeeName: string
+  previousScore: number
+  newScore: number
+  reduction: number
+  reason: string
+}
+
+interface Student {
+  id: string
+  name: string
+  studentClass: string
+  studentGroup: string
+  remainingScore: number
+  scoreNote: string
+  history?: ScoreHistory[]
+}
+
 export function DownloadData() {
   const [loading, setLoading] = useState<string | null>(null)
   const [message, setMessage] = useState("")
@@ -29,47 +48,10 @@ export function DownloadData() {
       }))
       ws["!cols"] = colWidths
 
-      // Header styling
-      const range = XLSX.utils.decode_range(ws["!ref"] || "A1")
-      for (let C = range.s.c; C <= range.e.c; ++C) {
-        const address = XLSX.utils.encode_col(C) + "1"
-        if (!ws[address]) continue
-        
-        ws[address].s = {
-          font: { bold: true, sz: 12, color: { rgb: "000000" } },
-          fill: { fgColor: { rgb: "D3D3D3" } },
-          alignment: { horizontal: "center", vertical: "center", wrapText: true },
-          border: {
-            top: { style: "thin", color: { rgb: "000000" } },
-            bottom: { style: "thin", color: { rgb: "000000" } },
-            left: { style: "thin", color: { rgb: "000000" } },
-            right: { style: "thin", color: { rgb: "000000" } },
-          },
-        }
-      }
-
-      // Data row styling
-      for (let R = range.s.r + 1; R <= range.e.r; ++R) {
-        for (let C = range.s.c; C <= range.e.c; ++C) {
-          const address = XLSX.utils.encode_col(C) + (R + 1)
-          if (!ws[address]) continue
-
-          ws[address].s = {
-            alignment: { horizontal: "left", vertical: "center" },
-            border: {
-              top: { style: "thin", color: { rgb: "CCCCCC" } },
-              bottom: { style: "thin", color: { rgb: "CCCCCC" } },
-              left: { style: "thin", color: { rgb: "CCCCCC" } },
-              right: { style: "thin", color: { rgb: "CCCCCC" } },
-            },
-          }
-        }
-      }
-
       XLSX.utils.book_append_sheet(wb, ws, name)
     })
 
-    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array", cellStyles: true })
+    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" })
     const blob = new Blob([excelBuffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     })
@@ -230,11 +212,12 @@ export function DownloadData() {
     }
   }
 
-  // 📊 Download Committee Score Recap
+  // 📊 Download Committee Score Recap (ENHANCED VERSION - 4 Sheets)
   const handleDownloadPanitiaScores = async () => {
     setLoading("panitia")
     setMessage("")
     try {
+      // Load all students
       const studentsDoc = doc(db, "students", "all_classes")
       const studentsSnap = await getDoc(studentsDoc)
       
@@ -244,56 +227,173 @@ export function DownloadData() {
       }
 
       const studentsData = studentsSnap.data()
-      const studentsList: any[] = []
+      const studentsArray: Student[] = []
 
-      Object.entries(studentsData).forEach(([className, groups]) => {
-        Object.entries(groups as Record<string, string[]>).forEach(([groupNumber, names]) => {
-          names.forEach((name) => {
-            studentsList.push({
-              id: `${className}-${groupNumber}-${name}`,
-              name,
-              class: className,
-              group: groupNumber,
-            })
-          })
-        })
-      })
-
+      // Load scores with history
       const scoresSnapshot = await getDocs(collection(db, "studentScores"))
-      const scoresMap: Record<string, { remainingScore: number; scoreNote: string }> = {}
-      
+      const scoresMap: Record<string, { remainingScore: number; scoreNote: string; history?: ScoreHistory[] }> = {}
+
       scoresSnapshot.docs.forEach((doc) => {
         const data = doc.data()
         scoresMap[doc.id] = {
           remainingScore: data.remainingScore !== undefined ? data.remainingScore : 100,
           scoreNote: data.scoreNote || "",
+          history: data.history || []
         }
       })
 
-      const panitiaData = studentsList.map((student) => {
-        const scoreData = scoresMap[student.id] || { remainingScore: 100, scoreNote: "" }
-        return {
-          "Student Name": student.name,
-          Class: student.class,
-          Group: student.group,
-          "Remaining Score": scoreData.remainingScore,
-          "Used Score": 100 - scoreData.remainingScore,
-          Notes: scoreData.scoreNote || "-",
+      // Build students array
+      Object.entries(studentsData).forEach(([className, groups]) => {
+        Object.entries(groups as Record<string, string[]>).forEach(([groupNumber, names]) => {
+          names.forEach((name) => {
+            const studentId = `${className}-${groupNumber}-${name}`
+            const scoreData = scoresMap[studentId] || { remainingScore: 100, scoreNote: "", history: [] }
+
+            studentsArray.push({
+              id: studentId,
+              name,
+              studentClass: className,
+              studentGroup: groupNumber,
+              remainingScore: scoreData.remainingScore,
+              scoreNote: scoreData.scoreNote,
+              history: scoreData.history || []
+            })
+          })
+        })
+      })
+
+      // Sort by Class → Group → Name
+      const sortedStudents = studentsArray.sort((a, b) => {
+        if (a.studentClass !== b.studentClass) {
+          return a.studentClass.localeCompare(b.studentClass)
+        }
+        if (a.studentGroup !== b.studentGroup) {
+          return Number(a.studentGroup) - Number(b.studentGroup)
+        }
+        return a.name.localeCompare(b.name)
+      })
+
+      // ===== SHEET 1: MASTER DATA =====
+      const masterData = sortedStudents.map((student, index) => ({
+        'No': index + 1,
+        'Student Name': student.name,
+        'Class': student.studentClass,
+        'Group': student.studentGroup,
+        'Initial Score': 100,
+        'Remaining Score': student.remainingScore,
+        'Total Reduction': 100 - student.remainingScore,
+        'Current Note': student.scoreNote || '-',
+        'Total Changes': student.history?.length || 0,
+        'Last Modified': student.history && student.history.length > 0 
+          ? new Date(student.history[student.history.length - 1].timestamp).toLocaleString('id-ID')
+          : '-'
+      }))
+
+      // ===== SHEET 2: HISTORY LOG =====
+      const historyData: any[] = []
+      sortedStudents.forEach(student => {
+        if (student.history && student.history.length > 0) {
+          student.history.forEach((h) => {
+            historyData.push({
+              'Date & Time': new Date(h.timestamp).toLocaleString('id-ID', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+              }),
+              'Student Name': student.name,
+              'Class': student.studentClass,
+              'Group': student.studentGroup,
+              'Committee Name': h.committeeeName,
+              'Previous Score': h.previousScore,
+              'New Score': h.newScore,
+              'Reduction': h.reduction,
+              'Reason': h.reason
+            })
+          })
         }
       })
 
-      panitiaData.sort((a: any, b: any) => {
-        if (a.Class !== b.Class) return a.Class.localeCompare(b.Class)
-        return Number(a.Group) - Number(b.Group)
+      historyData.sort((a, b) => {
+        const dateA = new Date(a['Date & Time'].split(', ').reverse().join(' '))
+        const dateB = new Date(b['Date & Time'].split(', ').reverse().join(' '))
+        return dateB.getTime() - dateA.getTime()
       })
 
-      if (panitiaData.length === 0) {
-        setMessage("No committee score data found.")
-        return
+      // ===== SHEET 3: SUMMARY =====
+      const summaryData = [
+        { 'Metric': 'Export Date & Time', 'Value': new Date().toLocaleString('id-ID') },
+        { 'Metric': '', 'Value': '' },
+        { 'Metric': '📊 STUDENT STATISTICS', 'Value': '' },
+        { 'Metric': 'Total Students (All)', 'Value': sortedStudents.length },
+        { 'Metric': 'Students with Full Score (100)', 'Value': sortedStudents.filter(s => s.remainingScore === 100).length },
+        { 'Metric': 'Students with Reductions', 'Value': sortedStudents.filter(s => s.remainingScore < 100).length },
+        { 'Metric': '', 'Value': '' },
+        { 'Metric': '📈 SCORE STATISTICS', 'Value': '' },
+        { 'Metric': 'Total Score Available', 'Value': sortedStudents.length * 100 },
+        { 'Metric': 'Total Score Used', 'Value': sortedStudents.reduce((sum, s) => sum + (100 - s.remainingScore), 0) },
+        { 'Metric': 'Total Score Remaining', 'Value': sortedStudents.reduce((sum, s) => sum + s.remainingScore, 0) },
+        { 'Metric': 'Average Remaining Score', 'Value': sortedStudents.length > 0 ? (sortedStudents.reduce((sum, s) => sum + s.remainingScore, 0) / sortedStudents.length).toFixed(2) : 0 },
+        { 'Metric': '', 'Value': '' },
+        { 'Metric': '👥 COMMITTEE STATISTICS', 'Value': '' },
+        { 'Metric': 'Total Activities Recorded', 'Value': historyData.length },
+        { 'Metric': 'Unique Committee Members', 'Value': new Set(historyData.map(h => h['Committee Name'])).size }
+      ]
+
+      // Committee stats breakdown
+      const committeeStats: Record<string, { count: number; totalReduction: number }> = {}
+      historyData.forEach(h => {
+        const name = h['Committee Name']
+        if (!committeeStats[name]) {
+          committeeStats[name] = { count: 0, totalReduction: 0 }
+        }
+        committeeStats[name].count++
+        committeeStats[name].totalReduction += h['Reduction']
+      })
+
+      if (Object.keys(committeeStats).length > 0) {
+        summaryData.push({ 'Metric': '', 'Value': '' })
+        summaryData.push({ 'Metric': '📋 ACTIVITY BY COMMITTEE', 'Value': '' })
+        Object.entries(committeeStats)
+          .sort((a, b) => b[1].count - a[1].count)
+          .forEach(([name, stats]) => {
+            summaryData.push({
+              'Metric': `  ${name}`,
+              'Value': `${stats.count} activities, ${stats.totalReduction} points reduced`
+            })
+          })
       }
 
-      exportToExcel(panitiaData, "Committee_Score_Recap")
-      setMessage(`✅ Successfully exported ${panitiaData.length} committee score records!`)
+      // ===== SHEET 4: COMMITTEE ACTIVITIES =====
+      const committeeDetailData: any[] = []
+      Object.keys(committeeStats).sort().forEach(committeeName => {
+        const activities = historyData.filter(h => h['Committee Name'] === committeeName)
+        activities.forEach(activity => {
+          committeeDetailData.push({
+            'Committee Name': activity['Committee Name'],
+            'Date & Time': activity['Date & Time'],
+            'Student Name': activity['Student Name'],
+            'Class': activity['Class'],
+            'Group': activity['Group'],
+            'Score Change': `${activity['Previous Score']} → ${activity['New Score']}`,
+            'Reduction': activity['Reduction'],
+            'Reason': activity['Reason']
+          })
+        })
+      })
+
+      // Export with 4 sheets
+      const sheets = [
+        { name: "Student Master Data", data: masterData },
+        { name: "History Log", data: historyData.length > 0 ? historyData : [{ 'Message': 'No history records found' }] },
+        { name: "Summary", data: summaryData },
+        { name: "Committee Activities", data: committeeDetailData.length > 0 ? committeeDetailData : [{ 'Message': 'No activities found' }] }
+      ]
+
+      exportToExcelMultiSheet(sheets, "Committee_Scores_Complete")
+      setMessage(`✅ Successfully exported complete committee data with 4 sheets!`)
     } catch (error) {
       setMessage("❌ Failed to export committee scores.")
       console.error(error)
@@ -347,7 +447,7 @@ export function DownloadData() {
       textColor: "text-white",
       onClick: handleDownloadPanitiaScores,
       key: "panitia",
-      description: "Remaining Score & Notes",
+      description: "Master Data + History + Summary + Activities",
     },
     {
       label: "Users Data",
