@@ -260,26 +260,6 @@ export function SystemControl() {
             </Button>
           </div>
 
-          {/* Statistics */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 border rounded-lg bg-blue-50">
-              <div className="text-sm text-blue-600 font-medium">Students</div>
-              <div className="text-2xl font-bold text-blue-900">{stats.students}</div>
-            </div>
-            <div className="p-4 border rounded-lg bg-green-50">
-              <div className="text-sm text-green-600 font-medium">Users</div>
-              <div className="text-2xl font-bold text-green-900">{stats.users}</div>
-            </div>
-            <div className="p-4 border rounded-lg bg-purple-50">
-              <div className="text-sm text-purple-600 font-medium">Lecturer Scores</div>
-              <div className="text-2xl font-bold text-purple-900">{stats.scores}</div>
-            </div>
-            <div className="p-4 border rounded-lg bg-orange-50">
-              <div className="text-sm text-orange-600 font-medium">Committee Scores</div>
-              <div className="text-2xl font-bold text-orange-900">{stats.committeeScores}</div>
-            </div>
-          </div>
-
           {/* Danger Zone */}
           <div className="p-4 border-2 border-destructive rounded-lg bg-destructive/5">
             <div className="flex items-start gap-3 mb-4">
